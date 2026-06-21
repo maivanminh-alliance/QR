@@ -2376,8 +2376,8 @@ try{qrcode.stringToBytes=qrcode.stringToBytesFuncs["UTF-8"];}catch(e){}
   .hitem .d{font-size:11px;color:var(--muted);margin-top:2px}
   .hitem .acts{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
   .hitem .acts button{border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
-  .hitem .re{background:var(--blue);color:#fff}
-  .hitem .rm{background:#fde8e8;color:var(--red)}
+  .hitem .re{background:var(--green);color:#fff}
+  .hitem .cp{background:#eef1f5;color:var(--navy)}
   .exp{display:flex;gap:10px;margin-bottom:12px}
   .exp button{flex:1;border:0;border-radius:10px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;background:#eef1f5;color:var(--navy)}
   .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:26px}
@@ -2686,22 +2686,29 @@ function renderHist(){
       '<div class="c">'+escapeHtml(shortContent(it))+'</div>'+
       (it.caption?'<div class="c" style="color:#6b7a8d">✍️ '+escapeHtml(it.caption)+'</div>':'')+
       '<div class="d">'+fmtDate(it.date)+'</div></div>'+
-      '<div class="acts"><button class="re">Lấy lại</button><button class="rm">Xoá</button></div>';
-    el.querySelector('.re').onclick=()=>restore(it);
-    el.querySelector('.rm').onclick=()=>{const arr=loadHist();arr.splice(idx,1);saveHist(arr);renderHist();};
+      '<div class="acts"><button class="re">⬇ Tải PNG</button><button class="cp">📋 Sao chép</button></div>';
+    el.querySelector('.re').onclick=()=>histDownload(it);
+    el.querySelector('.cp').onclick=(ev)=>histCopy(it,ev.target);
     box.appendChild(el);
   });
 }
-function restore(it){
-  // chọn tab tương ứng
-  document.querySelector('.tab[data-t="'+it.type+'"]').click();
-  $('#in-caption').value=it.caption||'';
-  if(it.type==='link')$('#in-link').value=it.content;
-  else if(it.type==='text')$('#in-text').value=it.content;
-  else if(it.type==='image'){imgData=it.content;const p=$('#ipreview');p.src=it.content;p.style.display='block';$('#iname').textContent='(từ lịch sử)';}
-  else if(it.type==='file'){fileData=it.content;$('#fname').textContent='(từ lịch sử)';}
-  $('#cFg').value=it.fg;$('#cBg').value=it.bg;
-  generate(false);
+// dựng lại ảnh QR chất lượng đầy đủ từ mục lịch sử
+function histComposite(it,cb){
+  let qr; try{qr=qrcode(0,'M');qr.addData(it.content);qr.make();}catch(e){alert('Không dựng lại được mã QR này.');return;}
+  drawComposite(qr,it.caption||'',it.fg||'#13315c',it.bg||'#ffffff',cv=>cb(cv.toDataURL('image/png')));
+}
+function histDownload(it){
+  histComposite(it,url=>{const a=document.createElement('a');a.href=url;a.download='QR-ALLIANCE.png';a.click();});
+}
+function histCopy(it,btn){
+  histComposite(it,async url=>{
+    const t=btn?btn.textContent:'';
+    try{
+      const blob=await(await fetch(url)).blob();
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      if(btn){btn.textContent='✓ Đã chép';setTimeout(()=>btn.textContent=t,1500);}
+    }catch(e){if(btn){btn.textContent='⚠ Dùng Tải PNG';setTimeout(()=>btn.textContent=t,1800);}}
+  });
 }
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
