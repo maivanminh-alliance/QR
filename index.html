@@ -185,6 +185,19 @@ window.__qrReady=false;
   </div>
 
   <div class="card">
+    <div class="card-h">☁️ Đồng bộ Google Sheet</div>
+    <div class="card-b">
+      <label>URL Web App Google Sheet (dạng …/macros/s/…/exec)</label>
+      <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
+      <div class="dl">
+        <button class="png" id="saveUrl">💾 Lưu URL</button>
+        <button class="copy" id="testUrl">📤 Gửi thử</button>
+      </div>
+      <div class="hint" id="syncMsg">Khi đã lưu URL, mỗi lần tạo QR sẽ tự gửi 1 dòng vào Google Sheet. Cần deploy Apps Script (file LichSuQR.gs) thành <b>Web App</b> trước — xem hướng dẫn trong file đó.</div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-h">Lịch sử tạo QR <button class="mini" id="clearAll">🗑 Xoá tất cả</button></div>
     <div class="card-b">
       <div class="exp">
@@ -327,7 +340,12 @@ function generate(saveHistory){
       lastImgURL=cv.toDataURL('image/png');
       $('#resultCard').classList.add('show');
       $('#resultCard').scrollIntoView({behavior:'smooth',block:'start'});
-      if(saveHistory!==false) addHistory({type:cur,content:c,caption,fg,bg,img:lastImgURL,date:Date.now()});
+      if(saveHistory!==false){
+        addHistory({type:cur,content:c,caption,fg,bg,img:lastImgURL,date:Date.now()});
+        sendToSheet({type:typeLabel[cur],content:(cur==='image'||cur==='file')?'(dữ liệu nhúng)':c,caption,
+          qrUrl:(cur==='link'||cur==='text')?'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(c):'',
+          date:new Date().toLocaleString('vi-VN')});
+      }
     });
   };
   if(qrImg.tagName==='IMG' && !qrImg.complete){qrImg.onload=()=>finish(qrURL);} else finish(qrURL);
@@ -419,6 +437,27 @@ $('#expCsv').onclick=()=>{
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a2=document.createElement('a');a2.href=URL.createObjectURL(blob);
   a2.download='Lich-su-QR-ALLIANCE.csv';a2.click();
+};
+
+// ===== Đồng bộ Google Sheet =====
+const SKEY='alliance_qr_sheeturl';
+$('#sheetUrl').value=localStorage.getItem(SKEY)||'';
+$('#saveUrl').onclick=()=>{
+  const u=$('#sheetUrl').value.trim();
+  localStorage.setItem(SKEY,u);
+  const m=$('#syncMsg');
+  if(u && !/\/exec$/.test(u)) m.innerHTML='⚠ URL nên kết thúc bằng <b>/exec</b> (URL Web App đã deploy). Link library (/macros/library/…) sẽ không nhận được dữ liệu.';
+  else m.textContent= u?'✓ Đã lưu URL. Mỗi lần tạo QR sẽ tự gửi vào Google Sheet.':'Đã xoá URL — tắt đồng bộ.';
+};
+function sendToSheet(payload){
+  const u=localStorage.getItem(SKEY); if(!u)return;
+  fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+    .then(()=>{$('#syncMsg').textContent='✓ Đã gửi 1 dòng vào Google Sheet lúc '+new Date().toLocaleTimeString('vi-VN');})
+    .catch(()=>{$('#syncMsg').textContent='⚠ Gửi thất bại — kiểm tra URL/Internet/quyền truy cập Web App.';});
+}
+$('#testUrl').onclick=()=>{
+  if(!localStorage.getItem(SKEY)){alert('Hãy lưu URL Web App trước.');return;}
+  sendToSheet({type:'Kiểm tra',content:'Gửi thử từ trang QR',caption:'',qrUrl:'',date:new Date().toLocaleString('vi-VN')});
 };
 
 renderHist();
