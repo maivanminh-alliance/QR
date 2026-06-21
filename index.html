@@ -185,23 +185,15 @@ window.__qrReady=false;
   </div>
 
   <div class="card">
-    <div class="card-h">☁️ Đồng bộ Google Sheet</div>
-    <div class="card-b">
-      <label>URL Web App Google Sheet (dạng …/macros/s/…/exec)</label>
-      <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
-      <div class="dl">
-        <button class="png" id="saveUrl">💾 Lưu URL</button>
-        <button class="copy" id="testUrl">📤 Gửi thử</button>
-      </div>
-      <div class="hint" id="syncMsg">Khi đã lưu URL, mỗi lần tạo QR sẽ tự gửi 1 dòng vào Google Sheet. Cần deploy Apps Script (file LichSuQR.gs) thành <b>Web App</b> trước — xem hướng dẫn trong file đó.</div>
+    <div class="card-h">Lịch sử tạo QR
+      <span style="display:flex;gap:8px">
+        <button class="mini" id="clearAll">🗑 Xoá tất cả</button>
+        <button class="mini" id="toggleHist">▾ Thu gọn</button>
+      </span>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-h">Lịch sử tạo QR <button class="mini" id="clearAll">🗑 Xoá tất cả</button></div>
-    <div class="card-b">
+    <div class="card-b" id="histBody">
       <div class="exp">
-        <button id="expCsv">⬇ Xuất CSV cho Google Sheet</button>
+        <button id="expXls">⬇ Tải Excel</button>
       </div>
       <div id="histList"><div class="hist-empty">Chưa có mã QR nào được tạo.</div></div>
     </div>
@@ -421,44 +413,48 @@ function restore(it){
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 $('#clearAll').onclick=()=>{if(confirm('Xoá toàn bộ lịch sử?')){saveHist([]);renderHist();}};
 
-// ===== Xuất CSV cho Google Sheet =====
-$('#expCsv').onclick=()=>{
-  const a=loadHist();
-  if(!a.length){alert('Chưa có dữ liệu để xuất.');return;}
-  const head=['STT','Ngay_gio','Loai','Noi_dung','Chu_duoi_QR','QR_IMAGE_URL'];
-  const rows=a.map((it,i)=>{
-    const content=(it.type==='image'||it.type==='file')?'(dữ liệu nhúng - không xuất link)':it.content;
-    const qrUrl=(it.type==='link'||it.type==='text')
-      ? 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(it.content)
-      : '';
-    return [i+1,fmtDate(it.date),typeLabel[it.type],content,it.caption||'',qrUrl];
-  });
-  const csv=[head,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
-  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const a2=document.createElement('a');a2.href=URL.createObjectURL(blob);
-  a2.download='Lich-su-QR-ALLIANCE.csv';a2.click();
+// ===== Thu gọn / mở rộng lịch sử =====
+$('#toggleHist').onclick=()=>{
+  const b=$('#histBody'), btn=$('#toggleHist');
+  const hidden=b.style.display==='none';
+  b.style.display=hidden?'block':'none';
+  btn.textContent=hidden?'▾ Thu gọn':'▸ Mở rộng';
 };
 
-// ===== Đồng bộ Google Sheet =====
-const SKEY='alliance_qr_sheeturl';
-$('#sheetUrl').value=localStorage.getItem(SKEY)||'';
-$('#saveUrl').onclick=()=>{
-  const u=$('#sheetUrl').value.trim();
-  localStorage.setItem(SKEY,u);
-  const m=$('#syncMsg');
-  if(u && !/\/exec$/.test(u)) m.innerHTML='⚠ URL nên kết thúc bằng <b>/exec</b> (URL Web App đã deploy). Link library (/macros/library/…) sẽ không nhận được dữ liệu.';
-  else m.textContent= u?'✓ Đã lưu URL. Mỗi lần tạo QR sẽ tự gửi vào Google Sheet.':'Đã xoá URL — tắt đồng bộ.';
+// ===== Tải Excel (.xls) =====
+$('#expXls').onclick=()=>{
+  const a=loadHist();
+  if(!a.length){alert('Chưa có dữ liệu để xuất.');return;}
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  let rows='';
+  a.forEach((it,i)=>{
+    const content=(it.type==='image'||it.type==='file')?'(dữ liệu nhúng)':it.content;
+    const cell=it.img?'<img src="'+it.img+'" width="90" height="90">':'';
+    rows+='<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td>'+esc(fmtDate(it.date))+'</td>'+
+      '<td>'+esc(typeLabel[it.type])+'</td>'+
+      '<td>'+esc(content)+'</td>'+
+      '<td>'+esc(it.caption||'')+'</td>'+
+      '<td>'+cell+'</td></tr>';
+  });
+  const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'+
+    '<head><meta charset="UTF-8"></head><body>'+
+    '<table border="1"><tr style="background:#1d4e89;color:#fff;font-weight:bold">'+
+    '<td>STT</td><td>Ngày giờ</td><td>Loại</td><td>Nội dung</td><td>Chữ dưới QR</td><td>Ảnh QR</td></tr>'+
+    rows+'</table></body></html>';
+  const blob=new Blob(['﻿'+html],{type:'application/vnd.ms-excel'});
+  const a2=document.createElement('a');a2.href=URL.createObjectURL(blob);
+  a2.download='Lich-su-QR-ALLIANCE.xls';a2.click();
 };
+
+// ===== Đồng bộ Google Sheet (URL gắn cứng) =====
+const SHEET_ENDPOINT='https://script.google.com/macros/s/AKfycbzBumetjnm8C9aadwoZPhUwMoTuTie2W-sbkCkatkzL95wCJGT9o_zPM7HjFu70CqZbYQ/exec';
 function sendToSheet(payload){
-  const u=localStorage.getItem(SKEY); if(!u)return;
-  fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
-    .then(()=>{$('#syncMsg').textContent='✓ Đã gửi 1 dòng vào Google Sheet lúc '+new Date().toLocaleTimeString('vi-VN');})
-    .catch(()=>{$('#syncMsg').textContent='⚠ Gửi thất bại — kiểm tra URL/Internet/quyền truy cập Web App.';});
+  if(!SHEET_ENDPOINT)return;
+  fetch(SHEET_ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+    .catch(()=>{});
 }
-$('#testUrl').onclick=()=>{
-  if(!localStorage.getItem(SKEY)){alert('Hãy lưu URL Web App trước.');return;}
-  sendToSheet({type:'Kiểm tra',content:'Gửi thử từ trang QR',caption:'',qrUrl:'',date:new Date().toLocaleString('vi-VN')});
-};
 
 renderHist();
 </script>
