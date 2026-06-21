@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tạo QR Code · ALLIANCE</title>
+<script>
+// Tải thư viện QR từ nhiều nguồn — nếu 1 nguồn bị chặn thì thử nguồn khác
+window.__qrReady=false;
+(function(){
+  var srcs=[
+    "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+    "https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js",
+    "https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"
+  ];
+  var i=0;
+  function next(){
+    if(i>=srcs.length){window.__qrReady='fail';return;}
+    var s=document.createElement('script');
+    s.src=srcs[i++];
+    s.onload=function(){window.__qrReady=true;};
+    s.onerror=next;
+    document.head.appendChild(s);
+  }
+  next();
+})();
+</script>
+<style>
+  :root{
+    --navy:#13315c; --navy2:#1d4e89; --blue:#2563b6; --blue-d:#1b4f96;
+    --bg:#eef1f5; --card:#fff; --line:#d9e0ea; --ink:#1f2d3d; --muted:#6b7a8d;
+    --orange:#e07b1a; --red:#e03b3b; --green:#37a169;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink)}
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px 60px}
+
+  /* Header */
+  .topbar{background:linear-gradient(180deg,var(--navy),var(--navy2));color:#fff;padding:14px 16px 18px}
+  .topbar .inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px}
+  .badge{background:#fff;color:var(--navy);font-weight:800;font-size:12px;letter-spacing:1px;padding:4px 8px;border-radius:5px}
+  .brand h1{font-size:17px;margin:0;font-weight:700}
+  .brand p{margin:2px 0 0;font-size:11px;opacity:.8}
+  .clock{text-align:right;font-size:13px;opacity:.9}
+  .maker{max-width:560px;margin:10px auto 0;text-align:center}
+  .maker span{background:rgba(255,255,255,.15);color:#fff;font-size:12px;padding:5px 14px;border-radius:20px}
+
+  /* Cards */
+  .card{background:var(--card);border-radius:14px;margin-top:16px;box-shadow:0 2px 10px rgba(20,40,80,.06);overflow:hidden}
+  .card-h{background:linear-gradient(180deg,var(--blue),var(--blue-d));color:#fff;font-weight:700;padding:13px 16px;font-size:15px}
+  .card-b{padding:16px}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;background:#f1f4f8;border-radius:10px;padding:5px;flex-wrap:wrap}
+  .tab{flex:1;min-width:72px;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:9px 6px;border-radius:8px;cursor:pointer;transition:.15s}
+  .tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+  input[type=text],input[type=password],textarea,select{
+    width:100%;border:1.5px solid var(--line);border-radius:10px;padding:13px 14px;font-size:15px;color:var(--ink);background:#fff;font-family:inherit}
+  textarea{min-height:90px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .hint{font-size:12px;color:var(--muted);margin:6px 2px 0;line-height:1.4}
+
+  .file-drop{border:2px dashed #c4d0e0;border-radius:12px;padding:22px;text-align:center;color:var(--muted);background:#fafcff;cursor:pointer}
+  .file-drop b{color:var(--blue)}
+
+  .gen-btn{width:100%;margin-top:18px;border:0;border-radius:12px;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;padding:16px;cursor:pointer;
+    background:linear-gradient(180deg,var(--blue),var(--blue-d));box-shadow:0 4px 12px rgba(37,99,182,.35)}
+  .gen-btn:active{transform:translateY(1px)}
+
+  /* Result */
+  .result{display:none;text-align:center}
+  .result.show{display:block}
+  #qrbox{display:inline-block;background:#fff;padding:16px;border-radius:14px;border:1px solid var(--line);margin:6px auto 0}
+  #qrbox img,#qrbox canvas{display:block}
+  .opts{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+  .opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .opt input[type=color]{width:34px;height:30px;border:1px solid var(--line);border-radius:6px;padding:0;background:none}
+  .dl{display:flex;gap:10px;margin-top:16px}
+  .dl button{flex:1;border:0;border-radius:10px;padding:13px;font-weight:700;font-size:14px;cursor:pointer}
+  .dl .png{background:var(--green);color:#fff}
+  .dl .copy{background:#eef1f5;color:var(--navy)}
+  .err{color:var(--red);font-size:13px;margin-top:10px;display:none}
+  .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:26px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand">
+      <span class="badge">ALLIANCE</span>
+      <div><h1>Tạo QR Code</h1><p>Công cụ tạo mã QR nội bộ</p></div>
+    </div>
+    <div class="clock" id="clock"></div>
+  </div>
+  <div class="maker"><span>Người lập: Mai Văn Minh</span></div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-h">Nội dung tạo mã QR</div>
+    <div class="card-b">
+      <div class="tabs">
+        <button class="tab active" data-t="link">🔗 Link</button>
+        <button class="tab" data-t="text">📝 Văn bản</button>
+        <button class="tab" data-t="image">🖼️ Hình ảnh</button>
+        <button class="tab" data-t="file">📎 File</button>
+      </div>
+
+      <!-- LINK -->
+      <div class="pane" data-p="link">
+        <label>Đường dẫn / URL</label>
+        <input type="text" id="in-link" placeholder="https://...">
+      </div>
+
+      <!-- TEXT -->
+      <div class="pane" data-p="text" style="display:none">
+        <label>Văn bản</label>
+        <textarea id="in-text" placeholder="Nhập nội dung văn bản..."></textarea>
+      </div>
+
+      <!-- IMAGE -->
+      <div class="pane" data-p="image" style="display:none">
+        <div class="file-drop" id="dropImg">
+          <div style="font-size:30px">🖼️</div>
+          <div>Bấm để chọn · kéo thả · hoặc dán (Ctrl+V) hình vào đây</div>
+          <div style="margin-top:4px"><b id="iname">Chưa chọn hình</b></div>
+          <img id="ipreview" style="display:none;max-width:140px;max-height:140px;margin:10px auto 0;border-radius:8px">
+        </div>
+        <input type="file" id="in-image" accept="image/*" style="display:none">
+        <div class="hint">QR nhúng trực tiếp dữ liệu hình ảnh — chỉ hợp với hình rất nhỏ. Hình lớn nên tải lên Drive/Box rồi dán link ở tab "Link".</div>
+      </div>
+
+      <!-- FILE -->
+      <div class="pane" data-p="file" style="display:none">
+        <div class="file-drop" id="drop">
+          <div style="font-size:30px">📎</div>
+          <div>Bấm để chọn file · hoặc kéo thả vào đây</div>
+          <div style="margin-top:4px"><b id="fname">Chưa chọn file</b></div>
+        </div>
+        <input type="file" id="in-file" style="display:none">
+        <div class="hint">QR nhúng trực tiếp nội dung file (data URL) — chỉ hợp với file rất nhỏ (≈ dưới 2KB, ví dụ .txt, danh thiếp). File lớn (ảnh, PDF, bản vẽ) nên tải lên Drive/Box rồi dán link ở tab "Link".</div>
+      </div>
+
+      <button class="gen-btn" id="gen">✦ TẠO MÃ QR</button>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+
+  <div class="card result" id="resultCard">
+    <div class="card-h">Mã QR của bạn</div>
+    <div class="card-b">
+      <div id="qrbox"></div>
+      <div class="opts">
+        <div class="opt">Màu mã <input type="color" id="cFg" value="#13315c"></div>
+        <div class="opt">Nền <input type="color" id="cBg" value="#ffffff"></div>
+        <div class="opt">Kích thước
+          <select id="cSize" style="padding:6px;border-radius:6px;border:1px solid var(--line)">
+            <option value="256">Vừa</option>
+            <option value="380" selected>Lớn</option>
+            <option value="512">Rất lớn</option>
+          </select>
+        </div>
+      </div>
+      <div class="dl">
+        <button class="png" id="dlPng">⬇ Tải PNG</button>
+        <button class="copy" id="cpy">📋 Sao chép nội dung</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">© 2026 Mai Văn Minh. All rights reserved.</div>
+</div>
+
+<script>
+// đồng hồ
+function tick(){const d=new Date();const p=n=>String(n).padStart(2,'0');
+  document.getElementById('clock').innerHTML=p(d.getHours())+':'+p(d.getMinutes())+'<br>'+
+    ['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]+', '+p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+tick();setInterval(tick,1000);
+
+let cur='link', fileData='', imgData='';
+const $=s=>document.querySelector(s);
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  cur=t.dataset.t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+  document.querySelectorAll('.pane').forEach(p=>p.style.display=p.dataset.p===cur?'block':'none');
+});
+
+// file
+const drop=$('#drop'), fin=$('#in-file');
+drop.onclick=()=>fin.click();
+fin.onchange=()=>handleFile(fin.files[0]);
+drop.ondragover=e=>{e.preventDefault();drop.style.background='#eef6ff'};
+drop.ondragleave=()=>drop.style.background='#fafcff';
+drop.ondrop=e=>{e.preventDefault();drop.style.background='#fafcff';handleFile(e.dataTransfer.files[0])};
+function handleFile(f){
+  if(!f)return;
+  $('#fname').textContent=f.name+' ('+(f.size/1024).toFixed(1)+' KB)';
+  const r=new FileReader();r.onload=()=>fileData=r.result;r.readAsDataURL(f);
+}
+
+// hình ảnh
+const dropImg=$('#dropImg'), iin=$('#in-image');
+dropImg.onclick=()=>iin.click();
+iin.onchange=()=>handleImg(iin.files[0]);
+dropImg.ondragover=e=>{e.preventDefault();dropImg.style.background='#eef6ff'};
+dropImg.ondragleave=()=>dropImg.style.background='#fafcff';
+dropImg.ondrop=e=>{e.preventDefault();dropImg.style.background='#fafcff';handleImg(e.dataTransfer.files[0])};
+function handleImg(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  const nm=f.name||'hình dán';
+  $('#iname').textContent=nm+' ('+(f.size/1024).toFixed(1)+' KB)';
+  const r=new FileReader();r.onload=()=>{imgData=r.result;const p=$('#ipreview');p.src=imgData;p.style.display='block';};
+  r.readAsDataURL(f);
+}
+// dán hình (Ctrl+V) khi đang ở tab Hình ảnh
+window.addEventListener('paste',e=>{
+  if(cur!=='image')return;
+  const items=(e.clipboardData||window.clipboardData).items;
+  for(const it of items){
+    if(it.type.startsWith('image/')){handleImg(it.getAsFile());e.preventDefault();break;}
+  }
+});
+
+function getContent(){
+  if(cur==='link') return $('#in-link').value.trim();
+  if(cur==='text') return $('#in-text').value.trim();
+  if(cur==='image') return imgData;
+  if(cur==='file') return fileData;
+  return '';
+}
+
+let lastContent='';
+function generate(){
+  const err=$('#err'); err.style.display='none';
+  const c=getContent();
+  if(!c){err.textContent='⚠ Vui lòng nhập nội dung trước khi tạo mã.';err.style.display='block';return;}
+  // chưa tải được thư viện?
+  if(typeof QRCode==='undefined'){
+    if(window.__qrReady==='fail'){
+      err.textContent='⚠ Không tải được thư viện tạo QR. Máy cần kết nối Internet lần đầu (hoặc mạng đang chặn CDN). Hãy kết nối mạng rồi tải lại trang.';
+    }else{
+      err.textContent='⏳ Thư viện đang tải, vui lòng đợi 1-2 giây rồi bấm lại.';
+    }
+    err.style.display='block';return;
+  }
+  lastContent=c;
+  const size=parseInt($('#cSize').value);
+  const box=$('#qrbox'); box.innerHTML='';
+  try{
+    new QRCode(box,{text:c,width:size,height:size,
+      colorDark:$('#cFg').value,colorLight:$('#cBg').value,
+      correctLevel:QRCode.CorrectLevel.M});
+    $('#resultCard').classList.add('show');
+    $('#resultCard').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){
+    err.textContent='⚠ Nội dung quá dài để tạo QR (thường gặp với file/ảnh). Hãy dùng file nhỏ hơn hoặc dán link.';
+    err.style.display='block';
+  }
+}
+$('#gen').onclick=generate;
+[ '#cFg','#cBg','#cSize'].forEach(id=>$(id).onchange=()=>{if(lastContent)generate();});
+
+// tải PNG
+$('#dlPng').onclick=()=>{
+  const img=$('#qrbox img')||$('#qrbox canvas'); if(!img)return;
+  const src=img.src||img.toDataURL('image/png');
+  const a=document.createElement('a');a.href=src;a.download='QR-ALLIANCE.png';a.click();
+};
+// sao chép nội dung
+$('#cpy').onclick=()=>{
+  navigator.clipboard.writeText(lastContent).then(()=>{
+    const b=$('#cpy');const t=b.textContent;b.textContent='✓ Đã sao chép';setTimeout(()=>b.textContent=t,1500);
+  });
+};
+</script>
+</body>
+</html>
